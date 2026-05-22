@@ -1,7 +1,7 @@
-import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import multer from "multer";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
@@ -34,8 +34,50 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  
+  // Add multipart form data middleware for file uploads
+  const upload = multer({ 
+    storage: multer.memoryStorage(), 
+    limits: { fileSize: 50 * 1024 * 1024 } 
+  });
+  
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  
+  // HTTP endpoint for file upload (alternative to tRPC for gateway compatibility)
+  app.post("/api/upload", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+      
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ error: "userId required" });
+      }
+      
+      const { storagePut } = await import("../storage");
+      const { createImage } = await import("../db");
+      
+      const fileKey = `images/${userId}/${Date.now()}-${req.file.originalname}`;
+      const { key, url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
+      
+      await createImage({
+        userId: parseInt(userId),
+        fileKey: key,
+        url,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+      });
+      
+      res.json({ url, fileKey: key });
+    } catch (error: any) {
+      console.error("[Upload] Error:", error);
+      res.status(500).json({ error: error.message || "Upload failed" });
+    }
+  });
+  
   // tRPC API
   app.use(
     "/api/trpc",

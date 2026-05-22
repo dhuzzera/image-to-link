@@ -1,8 +1,7 @@
 import { useState, useRef } from "react";
-import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import { Copy, CheckCircle2, Loader2, Upload, AlertCircle } from "lucide-react";
 
@@ -11,8 +10,8 @@ export default function UploadPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<{ url: string; fileName: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadMutation = trpc.images.upload.useMutation();
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -55,37 +54,37 @@ export default function UploadPage() {
       return;
     }
 
+    setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const base64String = (e.target?.result as string).split(",")[1] || "";
-          
-          const result = await uploadMutation.mutateAsync({
-            file: base64String,
-            fileName: file.name,
-            mimeType: file.type,
-          });
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("userId", String(user?.id));
 
-          setUploadedImage({
-            url: result.url,
-            fileName: file.name,
-          });
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-          toast.success("Imagem enviada com sucesso!");
-        } catch (error: any) {
-          const errorMessage = error?.message || "Falha ao fazer upload da imagem";
-          setError(errorMessage);
-          console.error("Upload error:", error);
-          toast.error(errorMessage);
-        }
-      };
-      reader.readAsDataURL(file);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Falha ao fazer upload da imagem");
+      }
+
+      const result = await response.json();
+
+      setUploadedImage({
+        url: result.url,
+        fileName: file.name,
+      });
+
+      toast.success("Imagem enviada com sucesso!");
     } catch (error: any) {
-      const errorMessage = error?.message || "Falha ao processar arquivo";
+      const errorMessage = error?.message || "Falha ao fazer upload da imagem";
       setError(errorMessage);
-      console.error("File processing error:", error);
+      console.error("Upload error:", error);
       toast.error(errorMessage);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -175,9 +174,9 @@ export default function UploadPage() {
                   onClick={() => fileInputRef.current?.click()}
                   variant="outline"
                   className="mt-4"
-                  disabled={uploadMutation.isPending}
+                  disabled={isUploading}
                 >
-                  {uploadMutation.isPending ? (
+                  {isUploading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Enviando...
