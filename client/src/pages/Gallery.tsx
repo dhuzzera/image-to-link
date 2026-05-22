@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function GalleryPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const [, navigate] = useLocation();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -66,6 +66,14 @@ export default function GalleryPage() {
     setSearchInput("");
     setPage(1);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     navigate("/auth");

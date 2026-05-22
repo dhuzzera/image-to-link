@@ -20,7 +20,7 @@ interface FilePreview {
 }
 
 export default function UploadPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const [, navigate] = useLocation();
   const [isDragging, setIsDragging] = useState(false);
   const [filePreviews, setFilePreviews] = useState<FilePreview[]>([]);
@@ -186,6 +186,14 @@ export default function UploadPage() {
     setError(null);
     setUploadProgress(0);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     navigate("/auth");
