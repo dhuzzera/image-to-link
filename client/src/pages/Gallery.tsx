@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
@@ -68,16 +68,8 @@ export default function GalleryPage() {
   };
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle>Autenticação Necessária</CardTitle>
-            <CardDescription>Faça login para visualizar sua galeria</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
+    navigate("/auth");
+    return null;
   }
 
   const images = data?.images ?? [];

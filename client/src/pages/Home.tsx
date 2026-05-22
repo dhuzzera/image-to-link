@@ -1,6 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { getLoginUrl } from "@/const";
 import { Cloud, Lock, Zap, ArrowRight, Upload, LogOut } from "lucide-react";
 import { Link } from "wouter";
 
@@ -26,7 +25,7 @@ export default function Home() {
             {isAuthenticated ? (
               <>
                 <span className="text-sm text-slate-600 hidden sm:inline">
-                  {user?.name || user?.email || ""}
+                  {user?.email || ""}
                 </span>
                 <Link href="/upload">
                   <Button variant="ghost" className="text-slate-700 gap-2">
@@ -50,11 +49,11 @@ export default function Home() {
                 </Button>
               </>
             ) : (
-              <a href={getLoginUrl()}>
+              <Link href="/auth">
                 <Button variant="default">
                   Entrar
                 </Button>
-              </a>
+              </Link>
             )}
           </div>
         </div>
@@ -87,12 +86,12 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  <a href={getLoginUrl()}>
+                  <Link href="/auth">
                     <Button size="lg" className="gap-2">
                       Começar Agora
                       <ArrowRight className="w-5 h-5" />
                     </Button>
-                  </a>
+                  </Link>
                   <Button size="lg" variant="outline" onClick={scrollToFeatures}>
                     Saiba Mais
                   </Button>

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -120,9 +121,13 @@ export default function UploadPage() {
         const formData = new FormData();
         formData.append("file", file);
 
+        const { data: { session } } = await supabase.auth.getSession();
         const response = await fetch("/api/upload", {
           method: "POST",
           body: formData,
+          headers: {
+            Authorization: `Bearer ${session?.access_token || ""}`,
+          },
         });
 
         if (!response.ok) {
@@ -183,16 +188,8 @@ export default function UploadPage() {
   };
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle>Autenticação Necessária</CardTitle>
-            <CardDescription>Faça login para fazer upload de imagens</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
+    navigate("/auth");
+    return null;
   }
 
   return (
