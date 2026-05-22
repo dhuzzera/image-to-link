@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
-import { Copy, Trash2, Loader2, ImageIcon, AlertCircle } from "lucide-react";
+import { Copy, Trash2, Loader2, ImageIcon, AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +18,7 @@ import {
 
 export default function GalleryPage() {
   const { user, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
   const { data: images, isLoading, error, refetch } = trpc.images.list.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -61,6 +63,26 @@ export default function GalleryPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* Navigation Buttons */}
+        <div className="flex justify-between items-center mb-8">
+          <Button
+            onClick={() => navigate("/")}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+          <Button
+            onClick={() => navigate("/upload")}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            Ir para Upload
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+
         <div className="mb-12">
           <h1 className="text-4xl font-light tracking-tight text-slate-900 mb-2">
             Minha Galeria

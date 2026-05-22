@@ -1,12 +1,14 @@
 import { useState, useRef } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Copy, CheckCircle2, Loader2, Upload, AlertCircle } from "lucide-react";
+import { Copy, CheckCircle2, Loader2, Upload, AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
 
 export default function UploadPage() {
   const { user, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<{ url: string; fileName: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +124,26 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
       <div className="max-w-2xl mx-auto">
+        {/* Navigation Buttons */}
+        <div className="flex justify-between items-center mb-8">
+          <Button
+            onClick={() => navigate("/")}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+          <Button
+            onClick={() => navigate("/gallery")}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            Ir para Galeria
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+
         <div className="text-center mb-12">
           <h1 className="text-4xl font-light tracking-tight text-slate-900 mb-2">
             Enviar Imagem

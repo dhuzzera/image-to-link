@@ -14,6 +14,7 @@
 - [x] Espaçamento generoso e atenção aos detalhes visuais
 - [x] Responsividade mobile-first
 - [x] Testes vitest para procedimentos tRPC
+- [x] Botões de navegação (Ir e Voltar) em todas as páginas
 
 ## Bugs e Correções
 
