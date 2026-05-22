@@ -1,10 +1,11 @@
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
-import { Copy, Trash2, Loader2, ImageIcon, AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { Copy, Trash2, Loader2, ImageIcon, AlertCircle, ArrowLeft, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import {
   AlertDialog,
@@ -19,17 +20,24 @@ import {
 export default function GalleryPage() {
   const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const { data: images, isLoading, error, refetch } = trpc.images.list.useQuery(undefined, {
-    enabled: isAuthenticated,
-  });
-  const deleteMutation = trpc.images.delete.useMutation();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+
+  const { data, isLoading, error, refetch } = trpc.images.list.useQuery(
+    { page, pageSize: 12, search: search || undefined },
+    { enabled: isAuthenticated }
+  );
+
+  const deleteMutation = trpc.images.delete.useMutation();
 
   const handleCopyLink = async (url: string) => {
     try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Link copiado para a área de transferência!");
-    } catch (error) {
+      const fullUrl = `${window.location.origin}${url}`;
+      await navigator.clipboard.writeText(fullUrl);
+      toast.success("Link copiado!");
+    } catch {
       toast.error("Falha ao copiar link");
     }
   };
@@ -47,6 +55,18 @@ export default function GalleryPage() {
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearch(searchInput);
+    setPage(1);
+  };
+
+  const clearSearch = () => {
+    setSearch("");
+    setSearchInput("");
+    setPage(1);
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
@@ -60,10 +80,14 @@ export default function GalleryPage() {
     );
   }
 
+  const images = data?.images ?? [];
+  const totalPages = data?.totalPages ?? 0;
+  const total = data?.total ?? 0;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* Navigation Buttons */}
+        {/* Navigation */}
         <div className="flex justify-between items-center mb-8">
           <Button
             onClick={() => navigate("/")}
@@ -75,23 +99,47 @@ export default function GalleryPage() {
           </Button>
           <Button
             onClick={() => navigate("/upload")}
-            variant="outline"
             className="flex items-center gap-2"
           >
-            Ir para Upload
-            <ArrowRight className="w-4 h-4" />
+            <ImageIcon className="w-4 h-4" />
+            Novo Upload
           </Button>
         </div>
 
-        <div className="mb-12">
+        {/* Header */}
+        <div className="mb-8">
           <h1 className="text-4xl font-light tracking-tight text-slate-900 mb-2">
             Minha Galeria
           </h1>
           <p className="text-lg text-slate-600">
-            Gerencie suas imagens e obtenha links públicos
+            {total > 0 ? `${total} ${total === 1 ? "imagem" : "imagens"} no seu acervo` : "Gerencie suas imagens e obtenha links públicos"}
           </p>
         </div>
 
+        {/* Search */}
+        <form onSubmit={handleSearch} className="mb-6">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Buscar por nome do arquivo..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button type="submit" variant="outline">
+              Buscar
+            </Button>
+            {search && (
+              <Button type="button" variant="ghost" onClick={clearSearch}>
+                Limpar
+              </Button>
+            )}
+          </div>
+        </form>
+
+        {/* Error State */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">
             <CardContent className="pt-4 pb-4 flex gap-3">
@@ -112,11 +160,13 @@ export default function GalleryPage() {
           </Card>
         )}
 
+        {/* Loading State */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
           </div>
-        ) : !images || images.length === 0 ? (
+        ) : images.length === 0 ? (
+          /* Empty State */
           <Card>
             <CardContent className="pt-12 pb-12">
               <div className="flex flex-col items-center justify-center gap-4">
@@ -125,103 +175,110 @@ export default function GalleryPage() {
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-medium text-slate-900 mb-1">
-                    Nenhuma imagem ainda
+                    {search ? "Nenhuma imagem encontrada" : "Nenhuma imagem ainda"}
                   </p>
                   <p className="text-sm text-slate-600">
-                    Comece fazendo upload de uma imagem
+                    {search
+                      ? `Nenhum resultado para "${search}"`
+                      : "Comece fazendo upload de uma imagem"}
                   </p>
                 </div>
+                {!search && (
+                  <Button onClick={() => navigate("/upload")} className="mt-2">
+                    Fazer Upload
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {images.map((image) => (
-              <Card key={image.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
-                <div className="aspect-square bg-slate-100 overflow-hidden">
-                  <img
-                    src={image.url}
-                    alt={image.fileName}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <CardContent className="pt-4 pb-4 flex-1 flex flex-col">
-                  <div className="space-y-3 flex-1">
-                    <div>
-                      <p className="text-xs font-medium text-slate-600 mb-1">Nome do arquivo:</p>
-                      <p className="text-sm text-slate-900 truncate font-medium">
-                        {image.fileName}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium text-slate-600 mb-1">Link público:</p>
-                      <div className="flex items-center gap-1 bg-slate-50 p-2 rounded border border-slate-200">
-                        <code className="flex-1 text-xs text-slate-700 break-all font-mono truncate">
-                          {image.url}
-                        </code>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleCopyLink(image.url)}
-                          className="flex-shrink-0 h-6 w-6 p-0"
-                          title="Copiar link"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium text-slate-600 mb-1">Data:</p>
-                      <p className="text-xs text-slate-600">
-                        {new Date(image.createdAt).toLocaleDateString("pt-BR", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+          <>
+            {/* Image Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+              {images.map((image) => (
+                <Card key={image.id} className="overflow-hidden hover:shadow-lg transition-shadow group">
+                  <div className="aspect-square bg-slate-100 overflow-hidden relative">
+                    <img
+                      src={image.url}
+                      alt={image.fileName}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    {/* Overlay actions on hover */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleCopyLink(image.url)}
+                        className="h-8"
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copiar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setDeleteConfirm(image.id)}
+                        className="h-8"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
                     </div>
                   </div>
+                  <CardContent className="p-3">
+                    <p className="text-sm text-slate-900 truncate font-medium" title={image.fileName}>
+                      {image.fileName}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {new Date(image.createdAt).toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-                  <div className="flex gap-2 pt-4 mt-auto">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleCopyLink(image.url)}
-                      className="flex-1"
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copiar Link
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDeleteConfirm(image.id)}
-                      disabled={deleteMutation.isPending}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm text-slate-600 px-4">
+                  Página {page} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirm !== null} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Deletar Imagem</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar esta imagem? Esta ação não pode ser desfeita.
+              Tem certeza que deseja deletar esta imagem? Esta ação não pode ser desfeita e o arquivo será removido permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex gap-3">
+          <div className="flex gap-3 justify-end">
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteConfirm !== null && handleDelete(deleteConfirm)}

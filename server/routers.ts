@@ -3,8 +3,8 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { createImage, deleteImage, getUserImages } from "./db";
-import { storagePut } from "./storage";
+import { createImage, deleteImage, getImageById, getUserImages } from "./db";
+import { storagePut, storageDelete } from "./storage";
 import { TRPCError } from "@trpc/server";
 
 // Validação de tipos MIME de imagem permitidos
@@ -25,7 +25,20 @@ export const appRouter = router({
   }),
 
   images: router({
-    list: protectedProcedure.query(({ ctx }) => getUserImages(ctx.user.id)),
+    list: protectedProcedure
+      .input(
+        z.object({
+          page: z.number().min(1).default(1),
+          pageSize: z.number().min(1).max(50).default(12),
+          search: z.string().optional(),
+        }).optional()
+      )
+      .query(async ({ ctx, input }) => {
+        const page = input?.page ?? 1;
+        const pageSize = input?.pageSize ?? 12;
+        const search = input?.search;
+        return getUserImages(ctx.user.id, { page, pageSize, search });
+      }),
 
     upload: protectedProcedure
       .input(
@@ -59,6 +72,7 @@ export const appRouter = router({
           const fileKey = `images/${ctx.user.id}/${Date.now()}-${input.fileName}`;
           const { key, url } = await storagePut(fileKey, buffer, input.mimeType);
 
+          // Store the permanent proxy URL (not a signed URL that expires)
           await createImage({
             userId: ctx.user.id,
             fileKey: key,
@@ -85,6 +99,19 @@ export const appRouter = router({
       .input(z.object({ imageId: z.number() }))
       .mutation(async ({ ctx, input }) => {
         try {
+          // Get image info first to delete from storage
+          const image = await getImageById(input.imageId, ctx.user.id);
+          if (!image) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Imagem não encontrada",
+            });
+          }
+
+          // Delete from storage (S3)
+          await storageDelete(image.fileKey);
+
+          // Delete from database
           const deleted = await deleteImage(input.imageId, ctx.user.id);
           if (!deleted) {
             throw new TRPCError({

@@ -1,11 +1,15 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
-import { Cloud, Lock, Zap, ArrowRight } from "lucide-react";
+import { Cloud, Lock, Zap, ArrowRight, Upload, LogOut } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Home() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
+
+  const scrollToFeatures = () => {
+    document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 flex flex-col">
@@ -18,11 +22,15 @@ export default function Home() {
             </div>
             <span className="text-xl font-light tracking-tight text-slate-900">Image to Link</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {isAuthenticated ? (
               <>
+                <span className="text-sm text-slate-600 hidden sm:inline">
+                  {user?.name || user?.email || ""}
+                </span>
                 <Link href="/upload">
-                  <Button variant="ghost" className="text-slate-700">
+                  <Button variant="ghost" className="text-slate-700 gap-2">
+                    <Upload className="w-4 h-4" />
                     Upload
                   </Button>
                 </Link>
@@ -31,6 +39,15 @@ export default function Home() {
                     Minha Galeria
                   </Button>
                 </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => logout()}
+                  className="text-slate-500"
+                  aria-label="Sair"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
               </>
             ) : (
               <a href={getLoginUrl()}>
@@ -76,11 +93,9 @@ export default function Home() {
                       <ArrowRight className="w-5 h-5" />
                     </Button>
                   </a>
-                  <a href={getLoginUrl()}>
-                    <Button size="lg" variant="outline">
-                      Saiba Mais
-                    </Button>
-                  </a>
+                  <Button size="lg" variant="outline" onClick={scrollToFeatures}>
+                    Saiba Mais
+                  </Button>
                 </>
               )}
             </div>
@@ -88,8 +103,16 @@ export default function Home() {
         </div>
 
         {/* Features Section */}
-        <div className="bg-white border-t border-slate-200">
+        <div id="features" className="bg-white border-t border-slate-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-light tracking-tight text-slate-900 mb-3">
+                Por que usar o Image to Link?
+              </h2>
+              <p className="text-slate-600 max-w-2xl mx-auto">
+                Uma plataforma simples e poderosa para hospedar e compartilhar suas imagens com segurança.
+              </p>
+            </div>
             <div className="grid md:grid-cols-3 gap-12">
               <div className="space-y-4">
                 <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-slate-100">
@@ -97,7 +120,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-lg font-medium text-slate-900">Armazenamento Seguro</h3>
                 <p className="text-slate-600 leading-relaxed">
-                  Suas imagens são armazenadas com segurança em infraestrutura de nuvem confiável.
+                  Suas imagens são armazenadas com segurança em infraestrutura de nuvem confiável com redundância.
                 </p>
               </div>
               <div className="space-y-4">
@@ -115,8 +138,42 @@ export default function Home() {
                 </div>
                 <h3 className="text-lg font-medium text-slate-900">Links Instantâneos</h3>
                 <p className="text-slate-600 leading-relaxed">
-                  Obtenha links públicos imediatamente após o upload para compartilhar com facilidade.
+                  Obtenha links públicos imediatamente após o upload. Suporte a múltiplos arquivos de uma vez.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* How it works */}
+        <div className="bg-slate-50 border-t border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-light tracking-tight text-slate-900 mb-3">
+                Como funciona
+              </h2>
+            </div>
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center mx-auto text-lg font-medium">
+                  1
+                </div>
+                <h3 className="font-medium text-slate-900">Faça login</h3>
+                <p className="text-sm text-slate-600">Crie sua conta ou entre com seu provedor favorito.</p>
+              </div>
+              <div className="text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center mx-auto text-lg font-medium">
+                  2
+                </div>
+                <h3 className="font-medium text-slate-900">Envie suas imagens</h3>
+                <p className="text-sm text-slate-600">Arraste e solte ou selecione múltiplos arquivos de uma vez.</p>
+              </div>
+              <div className="text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center mx-auto text-lg font-medium">
+                  3
+                </div>
+                <h3 className="font-medium text-slate-900">Compartilhe os links</h3>
+                <p className="text-sm text-slate-600">Copie os links gerados e use onde quiser.</p>
               </div>
             </div>
           </div>

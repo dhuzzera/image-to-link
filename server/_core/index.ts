@@ -8,6 +8,8 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { sdk } from "./sdk";
+import { rateLimit } from "../rateLimit";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -44,38 +46,50 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   
-  // HTTP endpoint for file upload (alternative to tRPC for gateway compatibility)
-  app.post("/api/upload", upload.single("file"), async (req, res) => {
+  // HTTP endpoint for file upload with proper authentication
+  const uploadRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 10, // max 10 uploads per minute
+    message: "Muitos uploads. Tente novamente em um minuto.",
+  });
+
+  app.post("/api/upload", uploadRateLimit, upload.single("file"), async (req, res) => {
     try {
+      // Authenticate the request using session cookie
+      let user;
+      try {
+        user = await sdk.authenticateRequest(req);
+      } catch {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
       if (!req.file) {
         return res.status(400).json({ error: "No file provided" });
       }
-      
-      const { userId } = req.body;
-      if (!userId) {
-        return res.status(400).json({ error: "userId required" });
+
+      // Validate file type
+      const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+      if (!ALLOWED_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPEG, PNG, GIF, WebP ou SVG." });
       }
-      
+
       const { storagePut } = await import("../storage");
       const { createImage } = await import("../db");
       
-      const fileKey = `images/${userId}/${Date.now()}-${req.file.originalname}`;
-      const { key } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
-      
-      // Get signed URL for public access
-      const { storageGetSignedUrl } = await import("../storage");
-      const signedUrl = await storageGetSignedUrl(key);
-      
+      const fileKey = `images/${user.id}/${Date.now()}-${req.file.originalname}`;
+      const { key, url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
+
+      // Store the permanent proxy URL (not a signed URL that expires)
       await createImage({
-        userId: parseInt(userId),
+        userId: user.id,
         fileKey: key,
-        url: signedUrl,
+        url,
         fileName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
       });
       
-      res.json({ url: signedUrl, fileKey: key });
+      res.json({ url, fileKey: key });
     } catch (error: any) {
       console.error("[Upload] Error:", error);
       res.status(500).json({ error: error.message || "Upload failed" });

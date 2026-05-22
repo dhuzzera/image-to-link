@@ -1,5 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { and, desc, eq, like, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { InsertImage, InsertUser, images, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -9,7 +10,8 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const client = postgres(process.env.DATABASE_URL);
+      _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -68,7 +70,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -89,20 +92,51 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function getUserImages(userId: number) {
+export async function getUserImages(
+  userId: number,
+  options?: { page?: number; pageSize?: number; search?: string }
+) {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get images: database not available");
-    return [];
+    return { images: [], total: 0, page: 1, pageSize: 12, totalPages: 0 };
   }
 
+  const page = options?.page ?? 1;
+  const pageSize = options?.pageSize ?? 12;
+  const search = options?.search;
+
   try {
+    const conditions = [eq(images.userId, userId)];
+    if (search) {
+      conditions.push(like(images.fileName, `%${search}%`));
+    }
+
+    const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
+
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(images)
+      .where(whereClause);
+    const total = Number(countResult[0]?.count ?? 0);
+
+    // Get paginated results
     const result = await db
       .select()
       .from(images)
-      .where(eq(images.userId, userId))
-      .orderBy((t) => desc(t.createdAt));
-    return result;
+      .where(whereClause)
+      .orderBy(desc(images.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    return {
+      images: result,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   } catch (error) {
     console.error("[Database] Failed to get user images:", error);
     throw error;
@@ -136,7 +170,6 @@ export async function deleteImage(imageId: number, userId: number) {
     await db
       .delete(images)
       .where(and(eq(images.id, imageId), eq(images.userId, userId)));
-    // If no error is thrown, deletion was successful
     return true;
   } catch (error) {
     console.error("[Database] Failed to delete image:", error);

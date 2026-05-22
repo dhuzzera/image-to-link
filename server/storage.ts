@@ -95,3 +95,28 @@ export async function storageGetSignedUrl(relKey: string): Promise<string> {
   const { url } = (await resp.json()) as { url: string };
   return url;
 }
+
+export async function storageDelete(relKey: string): Promise<boolean> {
+  try {
+    const { forgeUrl, forgeKey } = getForgeConfig();
+    const key = normalizeKey(relKey);
+
+    const deleteUrl = new URL("v1/storage/delete", forgeUrl + "/");
+    deleteUrl.searchParams.set("path", key);
+
+    const resp = await fetch(deleteUrl, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${forgeKey}` },
+    });
+
+    if (!resp.ok) {
+      console.warn(`[Storage] Delete failed for key ${key}: ${resp.status}`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[Storage] Delete error:", error);
+    return false;
+  }
+}
