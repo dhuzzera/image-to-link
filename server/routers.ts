@@ -1,10 +1,17 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { z } from "zod";
+import { createImage, deleteImage, getUserImages } from "./db";
+import { storagePut } from "./storage";
+import { TRPCError } from "@trpc/server";
+
+// Validação de tipos MIME de imagem permitidos
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -17,12 +24,84 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  images: router({
+    list: protectedProcedure.query(({ ctx }) => getUserImages(ctx.user.id)),
+
+    upload: protectedProcedure
+      .input(
+        z.object({
+          file: z.instanceof(Uint8Array),
+          fileName: z.string().min(1).max(255),
+          mimeType: z.string().min(1),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        // Validar tipo MIME
+        if (!ALLOWED_IMAGE_TYPES.includes(input.mimeType)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Tipo de arquivo não permitido. Use JPEG, PNG, GIF, WebP ou SVG.",
+          });
+        }
+
+        // Validar tamanho do arquivo
+        if (input.file.length > MAX_FILE_SIZE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Arquivo muito grande. Máximo 50MB.",
+          });
+        }
+
+        try {
+          const fileKey = `images/${ctx.user.id}/${Date.now()}-${input.fileName}`;
+          const { key, url } = await storagePut(fileKey, input.file, input.mimeType);
+
+          await createImage({
+            userId: ctx.user.id,
+            fileKey: key,
+            url,
+            fileName: input.fileName,
+            mimeType: input.mimeType,
+            fileSize: input.file.length,
+          });
+
+          return { url, fileKey: key };
+        } catch (error) {
+          console.error("[Images] Upload failed:", error);
+          if (error instanceof TRPCError) {
+            throw error;
+          }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Falha ao fazer upload da imagem",
+          });
+        }
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ imageId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const deleted = await deleteImage(input.imageId, ctx.user.id);
+          if (!deleted) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Imagem não encontrada",
+            });
+          }
+          return { success: true };
+        } catch (error) {
+          if (error instanceof TRPCError) {
+            throw error;
+          }
+          console.error("[Images] Delete failed:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Falha ao deletar imagem",
+          });
+        }
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
