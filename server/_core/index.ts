@@ -60,18 +60,23 @@ async function startServer() {
       const { createImage } = await import("../db");
       
       const fileKey = `images/${userId}/${Date.now()}-${req.file.originalname}`;
-      const { key, url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
+      const { key, url: relativeUrl } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
+      
+      // Build absolute URL
+      const protocol = req.protocol || "https";
+      const host = req.get("host") || "localhost:3000";
+      const absoluteUrl = `${protocol}://${host}${relativeUrl}`;
       
       await createImage({
         userId: parseInt(userId),
         fileKey: key,
-        url,
+        url: absoluteUrl,
         fileName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
       });
       
-      res.json({ url, fileKey: key });
+      res.json({ url: absoluteUrl, fileKey: key });
     } catch (error: any) {
       console.error("[Upload] Error:", error);
       res.status(500).json({ error: error.message || "Upload failed" });
