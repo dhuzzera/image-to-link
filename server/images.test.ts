@@ -54,7 +54,7 @@ describe("images router", { timeout: 10000 }, () => {
 
       try {
         await caller.images.upload({
-          file: new Uint8Array([1, 2, 3]),
+          file: Buffer.from([1, 2, 3]).toString("base64"),
           fileName: "test.txt",
           mimeType: "text/plain",
         });
@@ -69,12 +69,13 @@ describe("images router", { timeout: 10000 }, () => {
       const ctx = createAuthContext(1);
       const caller = appRouter.createCaller(ctx);
 
-      // Create a 51MB buffer (exceeds limit)
-      const largeBuffer = new Uint8Array(51 * 1024 * 1024);
+      // Create a 51MB base64 string (exceeds limit)
+      const largeBuffer = Buffer.alloc(51 * 1024 * 1024);
+      const largeBase64 = largeBuffer.toString("base64");
 
       try {
         await caller.images.upload({
-          file: largeBuffer,
+          file: largeBase64,
           fileName: "large.jpg",
           mimeType: "image/jpeg",
         });
@@ -91,7 +92,7 @@ describe("images router", { timeout: 10000 }, () => {
 
       try {
         await caller.images.upload({
-          file: new Uint8Array([1, 2, 3]),
+          file: Buffer.from([1, 2, 3]).toString("base64"),
           fileName: "",
           mimeType: "image/jpeg",
         });

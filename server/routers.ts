@@ -30,7 +30,7 @@ export const appRouter = router({
     upload: protectedProcedure
       .input(
         z.object({
-          file: z.instanceof(Uint8Array),
+          file: z.string(), // base64 encoded file
           fileName: z.string().min(1).max(255),
           mimeType: z.string().min(1),
         })
@@ -44,17 +44,20 @@ export const appRouter = router({
           });
         }
 
-        // Validar tamanho do arquivo
-        if (input.file.length > MAX_FILE_SIZE) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Arquivo muito grande. Máximo 50MB.",
-          });
-        }
-
         try {
+          // Decodificar base64 para buffer
+          const buffer = Buffer.from(input.file, "base64");
+
+          // Validar tamanho do arquivo
+          if (buffer.length > MAX_FILE_SIZE) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Arquivo muito grande. Máximo 50MB.",
+            });
+          }
+
           const fileKey = `images/${ctx.user.id}/${Date.now()}-${input.fileName}`;
-          const { key, url } = await storagePut(fileKey, input.file, input.mimeType);
+          const { key, url } = await storagePut(fileKey, buffer, input.mimeType);
 
           await createImage({
             userId: ctx.user.id,
@@ -62,7 +65,7 @@ export const appRouter = router({
             url,
             fileName: input.fileName,
             mimeType: input.mimeType,
-            fileSize: input.file.length,
+            fileSize: buffer.length,
           });
 
           return { url, fileKey: key };

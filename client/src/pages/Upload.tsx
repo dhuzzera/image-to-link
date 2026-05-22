@@ -56,23 +56,35 @@ export default function UploadPage() {
     }
 
     try {
-      const buffer = await file.arrayBuffer();
-      const result = await uploadMutation.mutateAsync({
-        file: new Uint8Array(buffer),
-        fileName: file.name,
-        mimeType: file.type,
-      });
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const base64String = (e.target?.result as string).split(",")[1] || "";
+          
+          const result = await uploadMutation.mutateAsync({
+            file: base64String,
+            fileName: file.name,
+            mimeType: file.type,
+          });
 
-      setUploadedImage({
-        url: result.url,
-        fileName: file.name,
-      });
+          setUploadedImage({
+            url: result.url,
+            fileName: file.name,
+          });
 
-      toast.success("Imagem enviada com sucesso!");
+          toast.success("Imagem enviada com sucesso!");
+        } catch (error: any) {
+          const errorMessage = error?.message || "Falha ao fazer upload da imagem";
+          setError(errorMessage);
+          console.error("Upload error:", error);
+          toast.error(errorMessage);
+        }
+      };
+      reader.readAsDataURL(file);
     } catch (error: any) {
-      const errorMessage = error?.message || "Falha ao fazer upload da imagem";
+      const errorMessage = error?.message || "Falha ao processar arquivo";
       setError(errorMessage);
-      console.error("Upload error:", error);
+      console.error("File processing error:", error);
       toast.error(errorMessage);
     }
   };
