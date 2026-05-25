@@ -163,8 +163,7 @@ export default function UploadPage() {
 
   const copyToClipboard = async (url: string) => {
     try {
-      const fullUrl = `${window.location.origin}${url}`;
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(url);
       toast.success("Link copiado!");
     } catch {
       toast.error("Falha ao copiar link");
@@ -173,7 +172,7 @@ export default function UploadPage() {
 
   const copyAllLinks = async () => {
     try {
-      const links = uploadedImages.map((img) => `${window.location.origin}${img.url}`).join("\n");
+      const links = uploadedImages.map((img) => img.url).join("\n");
       await navigator.clipboard.writeText(links);
       toast.success("Todos os links copiados!");
     } catch {
@@ -375,7 +374,7 @@ export default function UploadPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">{img.fileName}</p>
                     <code className="text-xs text-slate-600 font-mono break-all">
-                      {window.location.origin}{img.url}
+                      {img.url}
                     </code>
                   </div>
                   <Button

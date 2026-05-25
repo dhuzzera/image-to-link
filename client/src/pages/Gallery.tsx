@@ -34,8 +34,7 @@ export default function GalleryPage() {
 
   const handleCopyLink = async (url: string) => {
     try {
-      const fullUrl = `${window.location.origin}${url}`;
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(url);
       toast.success("Link copiado!");
     } catch {
       toast.error("Falha ao copiar link");
